@@ -7,6 +7,7 @@ from user_recommender import (
 from calculate_score import run_batch_scoring
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
 
 import atexit
 import os
@@ -36,26 +37,28 @@ app = Flask(__name__)
 
 def start_scheduler():
 
-    run_batch_scoring()
-
-
     scheduler = BackgroundScheduler()
 
+    # Run once shortly after startup, in the background (not on the
+    # import path), so a DB hiccup here can't crash the whole app.
+    scheduler.add_job(
+        func=run_batch_scoring,
+        trigger="date",
+        run_date=datetime.now() + timedelta(seconds=5)
+    )
 
+    # Then keep running on an interval.
     scheduler.add_job(
         func=run_batch_scoring,
         trigger="interval",
         minutes=2
     )
 
-
     scheduler.start()
-
 
     atexit.register(
         lambda: scheduler.shutdown()
     )
-
 
     return scheduler
 
